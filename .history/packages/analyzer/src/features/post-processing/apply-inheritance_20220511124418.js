@@ -21,14 +21,18 @@ export function applyInheritancePlugin() {
   const mapOfImportsPerFile = {};
   return {
     name: 'CORE - APPLY-INHERITANCE',
-    moduleLinkPhase({ moduleDoc, context }) {
+<<<<<<< HEAD
+    moduleLinkPhase({moduleDoc, context}) {
       // console.log(moduleDoc.path)
       // mapOfImportsPerFile[moduleDoc.path] = context.imports;
-      // then in packageLink in the `resolveModuleOrPackageSpecifier` fn,
+      // then in packageLink in the `resolveModuleOrPackageSpecifier` fn, 
       // I can pass the correct imports, so the output will become:
       // inheritedFrom: { module: 'bare-module' } (pseudocode)
     },
+    packageLinkPhase({customElementsManifest, context}){
+=======
     packageLinkPhase({ customElementsManifest, context }) {
+>>>>>>> 9485b31... wip
       const classes = getAllDeclarationsOfKind(customElementsManifest, 'class');
       const mixins = getAllDeclarationsOfKind(customElementsManifest, 'mixin');
 

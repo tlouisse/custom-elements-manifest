@@ -1,7 +1,11 @@
+// @ts-ignore
 import { describe } from '@asdgf/cli';
 import * as assert from 'uvu/assert';
-import { handleJsDoc } from '../../../../src/features/analyse-phase/creators/handlers.js';
-import { getNodesByCriteria } from '../../../../test-helpers/index.js';
+import {
+  handleJsDoc,
+  handleHeritage,
+} from '../../../../src/features/analyse-phase/creators/handlers.js';
+import { getNodesByCriteria } from '../../../../test-helpers/getNodesByCriteria.js';
 
 /**
  * Helper function that finds first jsdoc node of file and runs handleJsDoc to get the result that
@@ -16,7 +20,11 @@ function getJsDocOutputFromFile(file) {
   return handleJsDoc({}, jsDocNode);
 }
 
-const createFile = (/** @type {string} */ jsdocLines) => `
+/**
+ * @param {string} jsdocLines
+ */
+function createFile(jsdocLines) {
+  return `
 class X extends HTMLElement {
   /**
    ${jsdocLines}
@@ -25,11 +33,16 @@ class X extends HTMLElement {
     return 'thanks';
   }
 }`;
+}
 
+/**
+ * @param {string} fragment
+ */
 function getJsDocOutputFromFragment(fragment) {
   return getJsDocOutputFromFile(createFile(fragment));
 }
 
+// @ts-ignore
 describe('handleJsDoc', ({ it }) => {
   describe('Parameters', () => {
     it("creates a 'parameters' key (of type {name: string, type: {text: string}})", async () => {
@@ -88,7 +101,7 @@ describe('handleJsDoc', ({ it }) => {
         * @param {object} opts
         * @param {string} [opts.currency]`);
 
-      assert.equal(result, parameters, [
+      assert.equal(result.parameters, [
         {
           name: 'opts',
           type: {
@@ -111,3 +124,5 @@ describe('handleJsDoc', ({ it }) => {
     });
   });
 });
+
+describe('handleHeritage', ({ it }) => {});

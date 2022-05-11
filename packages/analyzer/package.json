@@ -49,6 +49,10 @@
     "typescript": "~4.3.2"
   },
   "devDependencies": {},
+  "imports": {
+    "#test-helpers/*": "./test-helpers/*",
+    "#src/*": "./src/*"
+  },
   "contributors": [
     "Pascal Schilp <pascalschilp@gmail.com>",
     "Benny Powers <web@bennypowers.com>",
