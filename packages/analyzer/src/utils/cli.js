@@ -13,14 +13,14 @@ const IGNORE = [
   '!bower_components/**/*.*',
   '!**/*.test.{js,ts}',
   '!**/*.suite.{js,ts}',
-  '!**/*.config.{js,ts}'
+  '!**/*.config.{js,ts}',
 ];
 
 export function mergeGlobsAndExcludes(defaults, userConfig, cliConfig) {
   const hasProvidedCliGlobs = has(cliConfig?.globs) || has(userConfig?.globs);
 
-  if(hasProvidedCliGlobs) {
-    defaults.globs = defaults.globs.filter(glob => glob !== '**/*.{js,ts,tsx}');
+  if (hasProvidedCliGlobs) {
+    defaults.globs = defaults.globs.filter((glob) => glob !== '**/*.{js,ts,tsx}');
   }
 
   const merged = [
@@ -31,7 +31,6 @@ export function mergeGlobsAndExcludes(defaults, userConfig, cliConfig) {
     ...(cliConfig?.exclude?.map((i) => `!${i}`) || []),
     ...IGNORE,
   ];
-
   return merged;
 }
 
@@ -60,12 +59,12 @@ export const DEFAULTS = {
   litelement: false,
   stencil: false,
   fast: false,
-  catalyst: false
-}
+  catalyst: false,
+};
 
 export function getCliConfig(argv) {
   const optionDefinitions = [
-    { name: 'config', type: String},
+    { name: 'config', type: String },
     { name: 'globs', type: String, multiple: true },
     { name: 'exclude', type: String, multiple: true },
     { name: 'outdir', type: String },
@@ -84,24 +83,24 @@ export function getCliConfig(argv) {
 
 export async function addFrameworkPlugins(mergedOptions) {
   let plugins = [];
-  if(mergedOptions?.litelement) {
+  if (mergedOptions?.litelement) {
     const { litPlugin } = await import('../features/framework-plugins/lit/lit.js');
-    plugins = [...(litPlugin() || [])]
+    plugins = [...(litPlugin() || [])];
   }
 
-  if(mergedOptions?.fast) {
+  if (mergedOptions?.fast) {
     const { fastPlugin } = await import('../features/framework-plugins/fast/fast.js');
-    plugins = [...(fastPlugin() || [])]
+    plugins = [...(fastPlugin() || [])];
   }
 
-  if(mergedOptions?.stencil) {
+  if (mergedOptions?.stencil) {
     const { stencilPlugin } = await import('../features/framework-plugins/stencil/stencil.js');
     plugins.push(stencilPlugin());
   }
 
-  if(mergedOptions?.catalyst) {
+  if (mergedOptions?.catalyst) {
     const { catalystPlugin } = await import('../features/framework-plugins/catalyst/catalyst.js');
-    plugins = [...(catalystPlugin() || [])]
+    plugins = [...(catalystPlugin() || [])];
   }
 
   return plugins;
@@ -116,14 +115,14 @@ export function addCustomElementsPropertyToPackageJson(outdir) {
   const packageJsonPath = `${process.cwd()}${path.sep}package.json`;
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
   const manifestPath = `./${path.posix.join(outdir, 'custom-elements.json')}`;
-  
+
   const packageHasExportsMap = !!packageJson?.exports;
   /** Is there a pointer to the CEM in the package.json at all yet? */
   const isListed = !!packageJson?.customElements || !!packageJson?.exports?.['./customElements'];
 
   /** If CEM is not listed in package.json yet */
-  if(!isListed) {
-    if(packageHasExportsMap) {
+  if (!isListed) {
+    if (packageHasExportsMap) {
       /** If the package has an export map, add it there */
       packageJson.exports['./customElements'] = manifestPath;
     } else {
@@ -136,18 +135,18 @@ export function addCustomElementsPropertyToPackageJson(outdir) {
     /** CEM is already listed in package.json */
 
     /** It's listed under custom `customElements` key */
-    if(!!packageJson?.customElements) {
+    if (!!packageJson?.customElements) {
       /** Only update if it has actually changed */
-      if(packageJson.customElements !== manifestPath) {
+      if (packageJson.customElements !== manifestPath) {
         packageJson.customElements = manifestPath;
         fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
       }
     }
 
     /** It's listed in the exports map */
-    if(!!packageJson?.exports?.['./customElements']) {
+    if (!!packageJson?.exports?.['./customElements']) {
       /** Only update if it has actually changed */
-      if(packageJson.exports['./customElements'] !== manifestPath) {
+      if (packageJson.exports['./customElements'] !== manifestPath) {
         packageJson.exports['./customElements'] = manifestPath;
         fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
       }
@@ -177,4 +176,4 @@ Available commands:
 
 Examples:
     custom-elements-manifest analyze --litelement --globs "**/*.js" --exclude "foo.js" "bar.js"
-`
+`;

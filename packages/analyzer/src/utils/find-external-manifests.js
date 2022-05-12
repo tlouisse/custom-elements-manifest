@@ -1,51 +1,66 @@
 import fs from 'fs';
 import path from 'path';
-import { findDependencies as find, splitPath } from '@custom-elements-manifest/find-dependencies';
+import { findDependencies, splitPath } from '@custom-elements-manifest/find-dependencies';
 
-export async function findDependencies(globs) {
+/**
+ * @typedef {import('custom-elements-manifest/schema').Package} Package
+ */
+
+/**
+ * @param {string[]} paths
+ * @param {{
+ *  nodeModulesDepth?: number,
+ *  basePath?: string,
+ * }} [options]
+ */
+export async function findExternalManifests(paths, options) {
+  /** @type {Package[]} */
   const cemsToMerge = [];
   const visited = new Set();
 
-  const dependencies = await find(globs);
+  const dependencies = await findDependencies(paths, options);
 
   dependencies?.forEach((dependencyPath) => {
     /** Ignore the original globs, we don't want to try to find a CEM for those */
-    if(!dependencyPath.includes('node_modules')) return;
+    if (!dependencyPath.includes('node_modules')) return;
 
     const { packageRoot, packageName } = splitPath(dependencyPath);
-    if(visited.has(packageName)) return;
+    if (visited.has(packageName)) return;
     visited.add(packageName);
 
     const packageJsonPath = `${packageRoot}${path.sep}package.json`;
     const cemPath = `${packageRoot}${path.sep}custom-elements.json`;
 
     /** Try to find `custom-elements.json` at `node_modules/specifier/custom-elements.json` */
-    if(fs.existsSync(cemPath)) {
+    if (fs.existsSync(cemPath)) {
       try {
         const cem = JSON.parse(fs.readFileSync(cemPath).toString());
         cemsToMerge.push(cem);
         return;
-      } catch(e) {
+      } catch (e) {
         throw new Error(`Failed to read custom-elements.json at path "${cemPath}". \n\n${e.stack}`);
       }
     }
 
     /** See if the `package.json` has a `customElements` field or if it has listed `./customElements` in its export map */
-    if(fs.existsSync(packageJsonPath)) {
+    if (fs.existsSync(packageJsonPath)) {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
       const cemLocation = packageJson?.customElements || packageJson?.exports?.['./customElements'];
 
-      if(cemLocation) {
+      if (cemLocation) {
         try {
           const cemPath = path.resolve(packageRoot, cemLocation);
           const cem = JSON.parse(fs.readFileSync(cemPath).toString());
           cemsToMerge.push(cem);
-        } catch(e) {
-          throw new Error(`Failed to read custom-elements.json at path "${cemPath}". \n\n${e.stack}`);
+        } catch (e) {
+          console.log({ e });
+
+          throw new Error(
+            `Failed to read custom-elements.json at path "${cemPath}". \n\n${e.stack}`,
+          );
         }
       }
     }
   });
-
   return cemsToMerge;
 }

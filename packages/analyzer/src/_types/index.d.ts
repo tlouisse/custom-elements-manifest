@@ -17,7 +17,7 @@ export type CemImport = {
   isTypeOnly: boolean;
 };
 
-export type PluginContext = { dev: boolean; imports?: CemImport[] };
+export type PluginContext = { dev: boolean; imports?: CemImport[], thirdPartyCEMs?: Package[] };
 export type CemPlugin = () => CemPluginObject;
 export type CemPluginObject = {
   name: string;

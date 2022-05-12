@@ -6,6 +6,7 @@ import { createTsModulesFromFiles } from './createTsModulesFromFiles.js';
 /**
  * @typedef {import('./_types').TestFile} TestFile
  * @typedef {import('./_types').CemPluginObject} CemPluginObject
+ * @typedef {import('../src/_types').PluginContext} PluginContext
  * @typedef {import('typescript').SourceFile} SourceFile
  * @typedef {import('typescript').Node} Node
  * @typedef {import('custom-elements-manifest/schema').Package} ManifestPackage
@@ -44,16 +45,20 @@ function runAllPhases({ source, manifestJsModule, mergedPlugins, manifest, conte
 
 /**
  * @param {TestFile[]} files
- * @param {{plugins:CemPluginObject[]; omitDefaultPlugins:boolean}} [customPlugins]
+ * @param {{plugins:CemPluginObject[]; omitDefaultPlugins:boolean, context:Partial<PluginContext>}} [customPlugins]
  * @returns {ManifestPackage}
  */
 export function createManifestFromFiles(
   files,
-  { plugins, omitDefaultPlugins } = { plugins: [], omitDefaultPlugins: false },
+  { plugins, omitDefaultPlugins, context } = {
+    plugins: [],
+    omitDefaultPlugins: false,
+    context: {},
+  },
 ) {
   const modules = createTsModulesFromFiles(files);
 
-  const context = { dev: false };
+  const mergedContext = { dev: false, ...context };
   /** @type {ManifestPackage} */
   const manifest = { schemaVersion: '1.0.0', readme: '', modules: [] };
   const mergedPlugins = [...(omitDefaultPlugins ? [] : FEATURES), ...plugins.flat()];
@@ -71,7 +76,13 @@ export function createManifestFromFiles(
       exports: [],
     };
     manifest.modules.push(manifestJsModule);
-    runAllPhases({ source: currModule, manifestJsModule, mergedPlugins, manifest, context });
+    runAllPhases({
+      source: currModule,
+      manifestJsModule,
+      mergedPlugins,
+      manifest,
+      context: mergedContext,
+    });
   });
 
   return manifest;

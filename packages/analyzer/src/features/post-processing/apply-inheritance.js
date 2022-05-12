@@ -1,13 +1,16 @@
 import {
   getAllDeclarationsOfKind,
   getModuleForClassLike,
-  getModuleFromManifest,
+  getModuleFromManifests,
   getInheritanceTree,
 } from '../../utils/manifest-helpers.js';
 import { resolveModuleOrPackageSpecifier } from '../../utils/index.js';
 
 /**
  * @typedef {import('../../_types').CemPlugin} CemPlugin
+ * @typedef {import('custom-elements-manifest/schema').Package} CemPackage
+ * @typedef {import('custom-elements-manifest/schema').ClassDeclaration} CemClassDeclaration
+ * @typedef {import('custom-elements-manifest/schema').MixinDeclaration} CemMixinDeclaration
  */
 
 /**
@@ -29,36 +32,33 @@ export function applyInheritancePlugin() {
       // inheritedFrom: { module: 'bare-module' } (pseudocode)
     },
     packageLinkPhase({ customElementsManifest, context }) {
-      const classes = getAllDeclarationsOfKind(customElementsManifest, 'class');
-      const mixins = getAllDeclarationsOfKind(customElementsManifest, 'mixin');
+      const allManifests = [customElementsManifest, ...(context.thirdPartyCEMs || [])];
+      /** @type {(CemClassDeclaration|CemMixinDeclaration)[]} */
+      const classLikes = [];
 
-      [...classes, ...mixins].forEach((customElement) => {
-        const inheritanceChain = getInheritanceTree(customElementsManifest, customElement.name);
+      allManifests.forEach((manifest) => {
+        const classes = /** @type {CemClassDeclaration[]} */ (
+          getAllDeclarationsOfKind(manifest, 'class')
+        );
+        const mixins = /** @type {CemMixinDeclaration[]} */ (
+          getAllDeclarationsOfKind(manifest, 'mixin')
+        );
+        classLikes.push(...[...classes, ...mixins]);
+      });
+
+      classLikes.forEach((classLike) => {
+        const inheritanceChain = getInheritanceTree(allManifests, classLike.name);
 
         inheritanceChain?.forEach((klass) => {
-          // Handle mixins
-          if (klass?.kind !== 'class') {
-            if (klass?.package) {
-              // the mixin comes from a bare module specifier, skip it
-              return;
-            }
-          }
-
           // ignore the current class itself
-          if (klass?.name === customElement.name) {
+          if (klass?.name === classLike.name) {
             return;
           }
 
           ['attributes', 'members', 'events'].forEach((type) => {
             klass?.[type]?.forEach((currItem) => {
-              const containingModulePath = getModuleForClassLike(
-                customElementsManifest,
-                klass.name,
-              );
-              const containingModule = getModuleFromManifest(
-                customElementsManifest,
-                containingModulePath,
-              );
+              const containingModulePath = getModuleForClassLike(allManifests, klass.name);
+              const containingModule = getModuleFromManifests(allManifests, containingModulePath);
 
               const newItem = { ...currItem };
 
@@ -67,7 +67,7 @@ export function applyInheritancePlugin() {
                * it means that the base has overridden that method from the super class
                * So we either add the data to the overridden method, or we add it to the array as a new item
                */
-              const existing = customElement?.[type]?.find((item) => newItem.name === item.name);
+              const existing = classLike?.[type]?.find((item) => newItem.name === item.name);
 
               if (existing) {
                 existing.inheritedFrom = {
@@ -75,7 +75,7 @@ export function applyInheritancePlugin() {
                   ...resolveModuleOrPackageSpecifier(containingModule, context, klass.name),
                 };
 
-                customElement[type] = customElement?.[type]?.map((item) =>
+                classLike[type] = classLike?.[type]?.map((item) =>
                   item.name === existing.name
                     ? {
                         ...newItem,
@@ -93,7 +93,7 @@ export function applyInheritancePlugin() {
                   ...resolveModuleOrPackageSpecifier(containingModule, context, klass.name),
                 };
 
-                customElement[type] = [...(customElement[type] || []), newItem];
+                classLike[type] = [...(classLike[type] || []), newItem];
               }
             });
           });

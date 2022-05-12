@@ -1,4 +1,4 @@
-import { createManifestFromFiles } from './createManifestFromFiles.js';
+import { createManifestFromFiles } from './create-manifest-helpers.js';
 
 /**
  * @typedef {import('./_types').TestFile} TestFile

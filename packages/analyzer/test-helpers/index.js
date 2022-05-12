@@ -1,4 +1,4 @@
-export { createManifestFromFiles } from './createManifestFromFiles.js';
+export { createManifestFromFiles, getThirdPartyCEMs } from './create-manifest-helpers.js';
 export {
   getManifestClassDeclaration,
   getClassDeclOutputFromManifest,

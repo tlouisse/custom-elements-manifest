@@ -45,7 +45,7 @@
     "custom-elements-manifest": "1.0.0",
     "debounce": "1.2.1",
     "@custom-elements-manifest/find-dependencies": "^0.0.4",
-    "globby": "11.0.4",
+    "globby": "^13.1.1",
     "typescript": "~4.3.2"
   },
   "devDependencies": {},
