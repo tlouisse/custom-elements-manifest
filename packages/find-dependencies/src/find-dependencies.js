@@ -3,21 +3,17 @@ import path from 'path';
 import { createRequire, builtinModules } from 'module';
 import { init, parse } from 'es-module-lexer';
 
-import { 
-  isBareModuleSpecifier,
-  splitPath,
-  traverseUp
-} from './utils.js';
+import { isBareModuleSpecifier, splitPath, traverseUp } from './utils.js';
 
 const require = createRequire(import.meta.url);
 
 /**
- * 
- * @param {string[]} paths 
+ *
+ * @param {string[]} paths
  * @param {{
  *  nodeModulesDepth?: number,
  *  basePath?: string,
- * }} options 
+ * }} options
  * @returns {Promise<string[]>}
  */
 export async function findDependencies(paths, options = {}) {
@@ -30,39 +26,41 @@ export async function findDependencies(paths, options = {}) {
   /** Init es-module-lexer wasm */
   await init;
 
-  paths.forEach(path => {
+  paths.forEach((path) => {
     const source = fs.readFileSync(path).toString();
     const [imports] = parse(source);
 
-    imports?.forEach(i => {
-      /** Skip built-in modules like fs, path, etc */
-      if(builtinModules.includes(i.n)) return;
+    imports?.forEach(({ n: specifier }) => {
+      if (builtinModules.includes(specifier))
+        /** Skip built-in modules like fs, path, etc */
+        return;
       try {
-        const pathToDependency = require.resolve(i.n, {paths: [
-          /** Current project's node_modules */
-          basePath,
-          /** Monorepo, look upwards in filetree n times */
-          ...traverseUp(nodeModulesDepth)
-        ]});
-
+        const pathToDependency = require.resolve(specifier, {
+          paths: [
+            /** Current project's node_modules */
+            basePath,
+            /** Monorepo, look upwards in filetree n times */
+            ...traverseUp(nodeModulesDepth, { cwd: basePath }),
+          ],
+        });
         importsToScan.add(pathToDependency);
         dependencies.add(pathToDependency);
       } catch {
-        console.log(`Failed to resolve dependency "${i.n}".`);
+        console.log(`Failed to resolve dependency "${specifier}".`);
       }
     });
   });
 
-  while(importsToScan.size) {
-    importsToScan.forEach(dep => {
+  while (importsToScan.size) {
+    importsToScan.forEach((dep) => {
       importsToScan.delete(dep);
 
       const source = fs.readFileSync(dep).toString();
       const [imports] = parse(source);
 
-      imports?.forEach(i => {
+      imports?.forEach((i) => {
         /** Skip built-in modules like fs, path, etc */
-        if(builtinModules.includes(i.n)) return;
+        if (builtinModules.includes(i.n)) return;
         const { packageRoot } = splitPath(dep);
         const fileToFind = isBareModuleSpecifier(i.n) ? i.n : path.join(path.dirname(dep), i.n);
         try {
@@ -70,23 +68,25 @@ export async function findDependencies(paths, options = {}) {
            * First check in the dependencies' node_modules, then in the project's node_modules,
            * then up, and up, and up
            */
-          const pathToDependency = require.resolve(fileToFind, {paths: [
-            /** Nested node_modules */
-            packageRoot, 
-            /** Current project's node_modules */
-            basePath, 
-            /** Monorepo, look upwards in filetree n times */
-            ...traverseUp(nodeModulesDepth)
-          ]});
-          /** 
-           * Don't add dependencies we've already scanned, also avoids circular dependencies 
-           * and multiple modules importing from the same module 
+          const pathToDependency = require.resolve(fileToFind, {
+            paths: [
+              /** Nested node_modules */
+              packageRoot,
+              /** Current project's node_modules */
+              basePath,
+              /** Monorepo, look upwards in filetree n times */
+              ...traverseUp(nodeModulesDepth, { cwd: basePath }),
+            ],
+          });
+          /**
+           * Don't add dependencies we've already scanned, also avoids circular dependencies
+           * and multiple modules importing from the same module
            */
-          if(!dependencies.has(pathToDependency)) {
+          if (!dependencies.has(pathToDependency)) {
             importsToScan.add(pathToDependency);
             dependencies.add(pathToDependency);
           }
-        } catch(e) {
+        } catch (e) {
           console.log(`Failed to resolve dependency "${i.n}".`);
         }
       });
