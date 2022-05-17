@@ -6,14 +6,36 @@ import { handleJsDocType, normalizeDescription } from '../../../utils/jsdoc.js';
 import { isWellKnownType } from '../../../utils/ast-helpers.js';
 
 /**
+ * @typedef {import('../../../_types').CemPlugin} CemPlugin
+ * @typedef {import('../../../_types').PluginContext} PluginContext
+ * @typedef {import('../../../_types').CemClassTemplate} CemClassTemplate
+ * @typedef {import('../../../_types').CemFunctionLikeTemplate} CemFunctionLikeTemplate
+ * @typedef {import('typescript').JSDoc} JSDoc
+ * @typedef {import('typescript').Node} Node
+ * @typedef {import('typescript').MethodDeclaration} TsMethodDeclaration
+ * @typedef {import('typescript').FunctionDeclaration} TsFunctionDeclaration
+ * @typedef {import('typescript').PropertyDeclaration} TsPropertyDeclaration
+ * @typedef {import('typescript').GetAccessorDeclaration} TsGetAccessorDeclaration
+ * @typedef {import('typescript').SetAccessorDeclaration} TsSetAccessorDeclaration
+ * @typedef {import('typescript').ExpressionStatement} TsExpressionStatement
+ * @typedef {import('typescript').ClassDeclaration} TsClassDeclaration
+ * @typedef {import('custom-elements-manifest/schema').Parameter} CemParameter
+ * @typedef {import('custom-elements-manifest/schema').JavaScriptModule} CemJavaScriptModule
+ */
+
+/**
  * @example static foo;
  * @example public foo;
  * @example private foo;
  * @example protected foo;
+ *
+ * @param {CemFunctionLikeTemplate} doc
+ * @param {TsPropertyDeclaration|TsGetAccessorDeclaration|TsSetAccessorDeclaration|TsMethodDeclaration} node
+ * @returns {CemFunctionLikeTemplate}
  */
 export function handleModifiers(doc, node) {
-  node?.modifiers?.forEach(modifier => {
-    if(modifier?.kind === ts.SyntaxKind.StaticKeyword) {
+  node?.modifiers?.forEach((modifier) => {
+    if (modifier?.kind === ts.SyntaxKind.StaticKeyword) {
       doc.static = true;
     }
 
@@ -35,29 +57,35 @@ export function handleModifiers(doc, node) {
 
 /**
  * Handles JsDoc
+ * @param {CemFunctionLikeTemplate} doc
+ * @param {Node & {jsDoc:JSDoc[]}} node
+ * @returns {CemFunctionLikeTemplate}
  */
 export function handleJsDoc(doc, node) {
-  node?.jsDoc?.forEach(jsDocComment => {
-    if(jsDocComment?.comment) {
-      if(has(jsDocComment?.comment)) {
-        doc.description = jsDocComment.comment.map(com => `${safe(() => com?.name?.getText()) ?? ''}${com.text}`).join('');
+  node.jsDoc?.forEach((jsDocComment) => {
+    if (jsDocComment?.comment) {
+      if (has(jsDocComment?.comment)) {
+        doc.description = jsDocComment.comment
+          .map((com) => `${safe(() => com?.name?.getText()) ?? ''}${com.text}`)
+          .join('');
       } else {
         doc.description = normalizeDescription(jsDocComment.comment);
       }
     }
 
-    jsDocComment?.tags?.forEach(tag => {
-      /** @param */
-      if(tag.kind === ts.SyntaxKind.JSDocParameterTag) {
-        const parameter = doc?.parameters?.find(parameter => parameter.name === tag.name.text);
+    jsDocComment?.tags?.forEach((tag) => {
+      // @param
+      if (tag.kind === ts.SyntaxKind.JSDocParameterTag) {
+        const parameter = doc?.parameters?.find((parameter) => parameter.name === tag.name.text);
         const parameterAlreadyExists = !!parameter;
+        /** @type {Partial<CemParameter>} */
         const parameterTemplate = parameter || {};
 
-        if(tag?.comment) {
+        if (tag?.comment) {
           parameterTemplate.description = normalizeDescription(tag.comment);
         }
 
-        if(tag?.name) {
+        if (tag?.name) {
           parameterTemplate.name = tag.name.getText();
         }
 
@@ -65,48 +93,48 @@ export function handleJsDoc(doc, node) {
          * If its bracketed, that means its optional
          * @example [foo]
          */
-        if(tag?.isBracketed) {
+        if (tag?.isBracketed) {
           parameterTemplate.optional = true;
         }
 
-        if(tag?.typeExpression) {
+        if (tag?.typeExpression) {
           parameterTemplate.type = {
-            text: handleJsDocType(tag.typeExpression.type.getText())
-          }
+            text: handleJsDocType(tag.typeExpression.type.getText()),
+          };
         }
 
-        if(!parameterAlreadyExists) {
+        if (!parameterAlreadyExists) {
           doc.parameters = [...(doc?.parameters || []), parameterTemplate];
         }
       }
 
       /** @returns */
-      if(tag.kind === ts.SyntaxKind.JSDocReturnTag) {
+      if (tag.kind === ts.SyntaxKind.JSDocReturnTag) {
         doc.return = {
           type: {
-            text: handleJsDocType(tag?.typeExpression?.type?.getText())
-          }
-        }
+            text: handleJsDocType(tag?.typeExpression?.type?.getText()),
+          },
+        };
       }
 
       /** @type */
-      if(tag.kind === ts.SyntaxKind.JSDocTypeTag) {
-        if(tag?.comment) {
+      if (tag.kind === ts.SyntaxKind.JSDocTypeTag) {
+        if (tag?.comment) {
           doc.description = normalizeDescription(tag.comment);
         }
 
         doc.type = {
-          text: handleJsDocType(tag.typeExpression.type.getText())
-        }
+          text: handleJsDocType(tag.typeExpression.type.getText()),
+        };
       }
 
       /** @reflect */
-      if(safe(() => tag?.tagName?.getText()) === 'reflect' && doc?.kind === 'field') {
+      if (safe(() => tag?.tagName?.getText()) === 'reflect' && doc?.kind === 'field') {
         doc.reflects = true;
       }
 
       /** @summary */
-      if(safe(() => tag?.tagName?.getText()) === 'summary') {
+      if (safe(() => tag?.tagName?.getText()) === 'summary') {
         doc.summary = tag.comment;
       }
 
@@ -116,7 +144,7 @@ export function handleJsDoc(doc, node) {
        * @private
        * @protected
        */
-      switch(tag.kind) {
+      switch (tag.kind) {
         case ts.SyntaxKind.JSDocPublicTag:
           doc.privacy = 'public';
           break;
@@ -133,21 +161,25 @@ export function handleJsDoc(doc, node) {
   return doc;
 }
 
-
-
 /**
  * Creates a mixin for inside a classDoc
  */
 export function createClassDeclarationMixin(name, moduleDoc, context) {
   const mixin = {
     name,
-    ...resolveModuleOrPackageSpecifier(moduleDoc, context, name)
+    ...resolveModuleOrPackageSpecifier(moduleDoc, context, name),
   };
   return mixin;
 }
 
 /**
  * Handles mixins and superclass
+ *
+ * @param {CemClassTemplate} classTemplate
+ * @param {CemJavaScriptModule} moduleDoc
+ * @param {PluginContext} context
+ * @param {TsClassDeclaration} node
+ * @returns {CemClassTemplate}
  */
 export function handleHeritage(classTemplate, moduleDoc, context, node) {
   node?.heritageClauses?.forEach((clause) => {
@@ -162,7 +194,7 @@ export function handleHeritage(classTemplate, moduleDoc, context, node) {
       /* gather mixin calls */
       if (ts.isCallExpression(node)) {
         const mixinName = node.expression.getText();
-        mixins.push(createClassDeclarationMixin(mixinName, moduleDoc, context))
+        mixins.push(createClassDeclarationMixin(mixinName, moduleDoc, context));
         while (ts.isCallExpression(node.arguments[0])) {
           node = node.arguments[0];
           const mixinName = node.expression.getText();
@@ -179,10 +211,10 @@ export function handleHeritage(classTemplate, moduleDoc, context, node) {
 
       classTemplate.superclass = {
         name: superClass,
-        ...resolveModuleOrPackageSpecifier(moduleDoc, context, superClass)
+        ...resolveModuleOrPackageSpecifier(moduleDoc, context, superClass),
       };
 
-      if(superClass === 'HTMLElement') {
+      if (superClass === 'HTMLElement') {
         delete classTemplate.superclass.module;
       }
     });
@@ -196,15 +228,17 @@ export function handleHeritage(classTemplate, moduleDoc, context, node) {
  * @example @attr my-attr this is the attr description
  */
 export function handleAttrJsDoc(node, doc) {
-  node?.jsDoc?.forEach(jsDoc => {
-    const docs = parse(jsDoc?.getFullText())?.find(doc => doc?.tags?.some(({tag}) => tag === 'attr'));
-    const attrTag = docs?.tags?.find(({tag}) => tag === 'attr');
+  node?.jsDoc?.forEach((jsDoc) => {
+    const docs = parse(jsDoc?.getFullText())?.find((doc) =>
+      doc?.tags?.some(({ tag }) => tag === 'attr'),
+    );
+    const attrTag = docs?.tags?.find(({ tag }) => tag === 'attr');
 
-    if(attrTag?.name) {
+    if (attrTag?.name) {
       doc.name = attrTag.name;
     }
 
-    if(attrTag?.description) {
+    if (attrTag?.description) {
       doc.description = normalizeDescription(attrTag.description);
     }
   });
@@ -214,28 +248,29 @@ export function handleAttrJsDoc(node, doc) {
 
 export function handleTypeInference(doc, node) {
   const n = node?.initializer || node;
-  switch(n?.kind) {
+  switch (n?.kind) {
     case ts.SyntaxKind.TrueKeyword:
     case ts.SyntaxKind.FalseKeyword:
-      doc.type = { text: "boolean" }
+      doc.type = { text: 'boolean' };
       break;
     case ts.SyntaxKind.StringLiteral:
-      doc.type = { text: "string" }
+      doc.type = { text: 'string' };
       break;
     case ts.SyntaxKind.PrefixUnaryExpression:
-      doc.type = n?.operator === ts.SyntaxKind.ExclamationToken ? { text: "boolean" } : { text: "number" };
+      doc.type =
+        n?.operator === ts.SyntaxKind.ExclamationToken ? { text: 'boolean' } : { text: 'number' };
       break;
     case ts.SyntaxKind.NumericLiteral:
-      doc.type = { text: "number" }
+      doc.type = { text: 'number' };
       break;
     case ts.SyntaxKind.NullKeyword:
-      doc.type = { text: "null" }
+      doc.type = { text: 'null' };
       break;
     case ts.SyntaxKind.ArrayLiteralExpression:
-      doc.type = { text: "array" }
+      doc.type = { text: 'array' };
       break;
     case ts.SyntaxKind.ObjectLiteralExpression:
-      doc.type = { text: "object" }
+      doc.type = { text: 'object' };
       break;
   }
   return doc;
@@ -256,6 +291,12 @@ export function handleWellKnownTypes(doc, node) {
   return doc;
 }
 
+/**
+ * @param {CemFunctionLikeTemplate} doc
+ * @param {TsPropertyDeclaration|TsGetAccessorDeclaration|TsSetAccessorDeclaration|TsMethodDeclaration} node
+ * @param {TsExpressionStatement} expression
+ * @returns {CemFunctionLikeTemplate}
+ */
 export function handleDefaultValue(doc, node, expression) {
   /**
    * In case of a class field node?.initializer
@@ -264,24 +305,24 @@ export function handleDefaultValue(doc, node, expression) {
   const initializer = node?.initializer || expression?.right;
 
   /** Ignore the following */
-  if(initializer?.kind === ts.SyntaxKind.BinaryExpression) return doc;
-  if(initializer?.kind === ts.SyntaxKind.ConditionalExpression) return doc;
-  if(initializer?.kind === ts.SyntaxKind.PropertyAccessExpression) return doc;
-  if(initializer?.kind === ts.SyntaxKind.CallExpression) return doc;
-  if(initializer?.kind === ts.SyntaxKind.ArrowFunction) return doc;
-  
+  if (initializer?.kind === ts.SyntaxKind.BinaryExpression) return doc;
+  if (initializer?.kind === ts.SyntaxKind.ConditionalExpression) return doc;
+  if (initializer?.kind === ts.SyntaxKind.PropertyAccessExpression) return doc;
+  if (initializer?.kind === ts.SyntaxKind.CallExpression) return doc;
+  if (initializer?.kind === ts.SyntaxKind.ArrowFunction) return doc;
+
   let defaultValue;
-  /** 
+  /**
    * Check if value has `as const`
    * @example const foo = 'foo' as const;
    */
-  if(initializer?.kind === ts.SyntaxKind.AsExpression) {
-    defaultValue = initializer?.expression?.getText()
+  if (initializer?.kind === ts.SyntaxKind.AsExpression) {
+    defaultValue = initializer?.expression?.getText();
   } else {
-    defaultValue = initializer?.getText()
+    defaultValue = initializer?.getText();
   }
-  
-  if(defaultValue) {
+
+  if (defaultValue) {
     doc.default = defaultValue;
   }
   return doc;
@@ -292,10 +333,10 @@ export function handleDefaultValue(doc, node, expression) {
  * @example class Foo { bar: string = ''; }
  */
 export function handleExplicitType(doc, node) {
-  if(node.type) {
-    doc.type = { text: node.type.getText() }
+  if (node.type) {
+    doc.type = { text: node.type.getText() };
 
-    if(node?.questionToken) {
+    if (node?.questionToken) {
       doc.type.text += ' | undefined';
     }
   }

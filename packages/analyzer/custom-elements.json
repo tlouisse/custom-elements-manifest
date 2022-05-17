@@ -4,85 +4,50 @@
   "modules": [
     {
       "kind": "javascript-module",
-      "path": "fixtures/-default/package/bar.js",
+      "path": "my-element.js",
       "declarations": [
         {
           "kind": "class",
           "description": "",
-          "name": "MyElementA",
-          "mixins": [
-            {
-              "name": "MyMixin",
-              "module": "fixtures/-default/package/bar.js"
-            }
-          ],
-          "superclass": {
-            "name": "HTMLElement"
-          },
-          "tagName": "my-mixin-element-a",
-          "customElement": true,
+          "name": "HelloWorldElement",
           "members": [
             {
               "kind": "field",
               "name": "foo",
               "type": {
-                "text": "number"
+                "text": "string"
               },
-              "default": "1",
-              "inheritedFrom": {
-                "name": "MyMixin",
-                "module": "fixtures/-default/package/bar.js"
-              }
-            }
-          ]
-        }
-      ],
-      "exports": [
-        {
-          "kind": "custom-element-definition",
-          "name": "my-mixin-element-a",
-          "declaration": {
-            "name": "MyElementA",
-            "module": "fixtures/-default/package/bar.js"
-          }
-        }
-      ]
-    },
-    {
-      "kind": "javascript-module",
-      "path": "fixtures/-default/package/node_modules/foo/index.js",
-      "declarations": [
-        {
-          "kind": "class",
-          "description": "",
-          "name": "SuperFoo",
-          "members": [
+              "default": "'hello'"
+            },
             {
-              "kind": "method",
-              "name": "superMethod"
+              "kind": "field",
+              "name": "bar"
             }
           ],
-          "events": [
+          "attributes": [
             {
-              "name": "super-event",
+              "name": "foo",
               "type": {
-                "text": "CustomEvent"
-              }
+                "text": "string"
+              },
+              "default": "'hello'",
+              "fieldName": "foo"
             }
           ],
           "superclass": {
             "name": "HTMLElement"
           },
+          "tagName": "hello-world",
           "customElement": true
         }
       ],
       "exports": [
         {
-          "kind": "js",
-          "name": "SuperFoo",
+          "kind": "custom-element-definition",
+          "name": "hello-world",
           "declaration": {
-            "name": "SuperFoo",
-            "module": "fixtures/-default/package/node_modules/foo/index.js"
+            "name": "HelloWorldElement",
+            "module": "my-element.js"
           }
         }
       ]
