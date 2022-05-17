@@ -4,41 +4,38 @@ import { withErrorHandling } from './utils/index.js';
 
 /**
  * CORE
- * 
+ *
  * This function is the core of the analyzer. It takes an array of ts sourceFiles, and creates a
  * custom elements manifest.
  */
-export function create({modules, plugins = [], dev = false}) {
+export function create({ modules, plugins = [], dev = false, thirdPartyCEMs }) {
   const customElementsManifest = {
     schemaVersion: '1.0.0',
     readme: '',
     modules: [],
   };
 
-  const mergedPlugins = [
-    ...FEATURES,
-    ...plugins,
-  ];
+  const mergedPlugins = [...FEATURES, ...plugins];
 
-  const context = { dev };
+  const context = { dev, thirdPartyCEMs };
 
-  modules.forEach(currModule => {
-    if(dev) console.log('[COLLECT PHASE]: ', currModule.fileName);
+  modules.forEach((currModule) => {
+    if (dev) console.log('[COLLECT PHASE]: ', currModule.fileName);
     /**
      * COLLECT PHASE
-     * First pass through all modules. Can be used to gather imports, exports, types, default values, 
+     * First pass through all modules. Can be used to gather imports, exports, types, default values,
      * which you may need to know the existence of in a later phase.
      */
     collect(currModule, context, mergedPlugins);
   });
 
-  modules.forEach(currModule => {
-    if(dev) console.log('[ANALYZE PHASE]: ', currModule.fileName);
+  modules.forEach((currModule) => {
+    if (dev) console.log('[ANALYZE PHASE]: ', currModule.fileName);
     const moduleDoc = {
-      kind: "javascript-module",
+      kind: 'javascript-module',
       path: currModule.fileName,
       declarations: [],
-      exports: []
+      exports: [],
     };
 
     /**
@@ -50,31 +47,31 @@ export function create({modules, plugins = [], dev = false}) {
     analyze(currModule, moduleDoc, context, mergedPlugins);
     customElementsManifest.modules.push(moduleDoc);
 
-    if(dev) console.log('[MODULE LINK PHASE]: ', currModule.fileName);
+    if (dev) console.log('[MODULE LINK PHASE]: ', currModule.fileName);
     /**
      * LINK PHASE
      * All information for a module has been gathered, now we can link information together. Like:
      * - Finding a CustomElement's tagname by finding its customElements.define() call (or 'export')
      * - Applying inheritance to classes (adding `inheritedFrom` properties/attrs/events/methods)
      */
-    mergedPlugins.forEach(({name, moduleLinkPhase}) => {
+    mergedPlugins.forEach(({ name, moduleLinkPhase }) => {
       withErrorHandling(name, () => {
-        moduleLinkPhase?.({ts, moduleDoc, context});
+        moduleLinkPhase?.({ ts, moduleDoc, context });
       });
     });
   });
 
-  if(dev) console.log('[PACKAGE LINK PHASE]');
-  /** 
-   * PACKAGE LINK PHASE 
+  if (dev) console.log('[PACKAGE LINK PHASE]');
+  /**
+   * PACKAGE LINK PHASE
    * All modules have now been parsed, we can now link information from across modules together
-   * - Link classes to their definitions etc 
+   * - Link classes to their definitions etc
    * - Match tagNames for classDocs
    * - Apply inheritance
    */
-  mergedPlugins.forEach(({name, packageLinkPhase}) => {
+  mergedPlugins.forEach(({ name, packageLinkPhase }) => {
     withErrorHandling(name, () => {
-      packageLinkPhase?.({customElementsManifest, context});
+      packageLinkPhase?.({ customElementsManifest, context });
     });
   });
 
@@ -85,9 +82,9 @@ function collect(source, context, mergedPlugins) {
   visitNode(source);
 
   function visitNode(node) {
-    mergedPlugins.forEach(({name, collectPhase}) => {
+    mergedPlugins.forEach(({ name, collectPhase }) => {
       withErrorHandling(name, () => {
-        collectPhase?.({ts, node, context});
+        collectPhase?.({ ts, node, context });
       });
     });
 
@@ -99,9 +96,9 @@ function analyze(source, moduleDoc, context, mergedPlugins) {
   visitNode(source);
 
   function visitNode(node) {
-    mergedPlugins.forEach(({name, analyzePhase}) => {
+    mergedPlugins.forEach(({ name, analyzePhase }) => {
       withErrorHandling(name, () => {
-        analyzePhase?.({ts, node, moduleDoc, context});
+        analyzePhase?.({ ts, node, moduleDoc, context });
       });
     });
 

@@ -2,17 +2,28 @@
  * UTILITIES RELATED TO GETTING INFORMATION OUT OF A MANIFEST OR DOC
  */
 
-import { has } from "./index.js";
+import { has } from './index.js';
 
+/**
+ * @typedef {import('custom-elements-manifest/schema').Package} Package
+ */
 
+/**
+ * @param {Package} manifest
+ * @param {(decl:any) => boolean} predicate
+ */
 function loopThroughDeclarations(manifest, predicate) {
-  manifest?.modules?.forEach(_module => {
+  manifest?.modules?.forEach((_module) => {
     _module?.declarations?.forEach(predicate);
   });
 }
 
+/**
+ * @param {Package} manifest
+ * @param {(exp:any) => boolean} predicate
+ */
 function loopThroughExports(manifest, predicate) {
-  manifest?.modules?.forEach(_module => {
+  manifest?.modules?.forEach((_module) => {
     _module?.exports?.forEach(predicate);
   });
 }
@@ -22,28 +33,33 @@ function loopThroughExports(manifest, predicate) {
  *
  * @example getKind('class');
  * @example getKind('custom-element-definition');
+ *
+ * @param {Package} manifest
+ * @param {string} kind
  */
 export function getAllExportsOfKind(manifest, kind) {
   const result = [];
   loopThroughExports(manifest, (_export) => {
-    if(_export.kind === kind) {
+    if (_export.kind === kind) {
       result.push(_export);
     }
   });
   return result;
 }
 
-
 /**
  * Loops through all modules' declarations, and returns the kind provided by the users
  *
  * @example getKind('class');
  * @example getKind('custom-element-definition');
+ *
+ * @param {Package} manifest
+ * @param {string} kind
  */
 export function getAllDeclarationsOfKind(manifest, kind) {
   const result = [];
   loopThroughDeclarations(manifest, (declaration) => {
-    if(declaration.kind === kind) {
+    if (declaration.kind === kind) {
       result.push(declaration);
     }
   });
@@ -53,8 +69,11 @@ export function getAllDeclarationsOfKind(manifest, kind) {
 /**
  * Gets the inheritance tree from a manifest given a className
  * Returns an array of a classes mixins/superclasses all the way up the chain
+ *
+ * @param {Package[]} manifests
+ * @param {string} className
  */
-export function getInheritanceTree(cem, className) {
+export function getInheritanceTree(manifests, className) {
   const tree = [];
   const allClassLikes = new Map();
   const _classes = [];
@@ -69,20 +88,20 @@ export function getInheritanceTree(cem, className) {
     allClassLikes.set(klass.name, klass);
   });
 
-  let klass = allClassLikes.get(className)
+  let klass = allClassLikes.get(className);
 
-  if(klass) {
-    tree.push(klass)
+  if (klass) {
+    tree.push(klass);
 
-    klass?.mixins?.forEach(mixin => {
-      let foundMixin = _mixins.find(m => m.name === mixin.name);
-      if(foundMixin) {
+    klass?.mixins?.forEach((mixin) => {
+      let foundMixin = _mixins.find((m) => m.name === mixin.name);
+      if (foundMixin) {
         tree.push(foundMixin);
 
-        while(has(foundMixin?.mixins)) {
-          foundMixin?.mixins?.forEach(mixin => {
-            foundMixin =  _mixins.find(m => m.name === mixin.name);
-            if(foundMixin) {
+        while (has(foundMixin?.mixins)) {
+          foundMixin?.mixins?.forEach((mixin) => {
+            foundMixin = _mixins.find((m) => m.name === mixin.name);
+            if (foundMixin) {
               tree.push(foundMixin);
             }
           });
@@ -90,25 +109,19 @@ export function getInheritanceTree(cem, className) {
       }
     });
 
-    while(allClassLikes.has(klass.superclass?.name)) {
+    while (allClassLikes.has(klass.superclass?.name)) {
       const newKlass = allClassLikes.get(klass.superclass.name);
-      let allMixins = [];
-      if (klass?.mixins) {
-        allMixins = [...klass.mixins];
-      }
-      if (newKlass?.mixins) {
-        allMixins = [...allMixins, ...newKlass.mixins];
-      }
+      const allMixins = [...klass?.mixins || [], ...newKlass?.mixins || []];
 
       allMixins.forEach(mixin => {
-        let foundMixin = _mixins.find(m => m.name === mixin.name);
-        if(foundMixin) {
+        let foundMixin = _mixins.find((m) => m.name === mixin.name);
+        if (foundMixin) {
           tree.push(foundMixin);
 
-          while(has(foundMixin?.mixins)) {
-            foundMixin?.mixins?.forEach(mixin => {
-              foundMixin =  _mixins.find(m => m.name === mixin.name);
-              if(foundMixin) {
+          while (has(foundMixin?.mixins)) {
+            foundMixin?.mixins?.forEach((mixin) => {
+              foundMixin = _mixins.find((m) => m.name === mixin.name);
+              if (foundMixin) {
                 tree.push(foundMixin);
               }
             });
@@ -124,6 +137,10 @@ export function getInheritanceTree(cem, className) {
   return [];
 }
 
+/**
+ * @param {Package[]} manifests
+ * @param {string} modulePath
+ */
 export function getModuleFromManifests(manifests, modulePath) {
   let result = undefined;
 
@@ -138,6 +155,10 @@ export function getModuleFromManifests(manifests, modulePath) {
   return result;
 }
 
+/**
+ * @param {Package[]} manifests
+ * @param {string} className
+ */
 export function getModuleForClassLike(manifests, className) {
   let result = undefined;
 
@@ -169,14 +190,12 @@ export function getModuleForClassLike(manifests, className) {
  */
 export function getClassMemberDoc(moduleDoc, className, memberName, isStatic = false) {
   /** @type {import('custom-elements-manifest/schema').ClassDeclaration} */
-  const classDoc = (moduleDoc.declarations.find(x => x.name === className));
+  const classDoc = moduleDoc.declarations.find((x) => x.name === className);
 
-  if (!classDoc || !has(classDoc.members))
-    return;
+  if (!classDoc || !has(classDoc.members)) return;
 
-  const memberDoc = classDoc.members.find(x =>
-    x.name === memberName &&
-    (x.static ?? false) === isStatic
+  const memberDoc = classDoc.members.find(
+    (x) => x.name === memberName && (x.static ?? false) === isStatic,
   );
 
   return memberDoc;
