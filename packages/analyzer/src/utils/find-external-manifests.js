@@ -1,33 +1,47 @@
 import fs from 'fs';
 import path from 'path';
-import { findDependencies, splitPath } from '@custom-elements-manifest/find-dependencies';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
+function getPackageRootPath(pkgName, {basePath}) {
+  // For instance /path/to/monorepo/pkg/src/mainEntry.js
+  const resolvedPackageEntry = require.resolve(pkgName, { paths: [basePath]});
+
+  // Given ['','path','to','monorepo','pkg','src'], iterate till /path/to/monorepo/pkg is found
+  const parts = path.dirname(resolvedPackageEntry).split(path.sep);
+  for (let i=0; i < parts.length; i+=1) {
+    const consideredParts = i > 0 ? parts.slice(0,-i) : parts;
+    const potentialRoot = consideredParts.join(path.sep);
+    try {
+      const pkg = JSON.parse(fs.readFileSync(`${potentialRoot}/package.json`, 'utf8'));
+      if (pkg.name === pkgName) {
+        return potentialRoot;
+      }
+    } catch {}
+  }
+}
 
 /**
  * @typedef {import('custom-elements-manifest/schema').Package} Package
  */
 
 /**
- * @param {string[]} paths
  * @param {{
  *  nodeModulesDepth?: number,
  *  basePath?: string,
  * }} [options]
  */
-export async function findExternalManifests(paths, options) {
+export async function findExternalManifests(options) {
+  const { basePath } = options;
+  const pkgJsonContent = fs.readFileSync(path.join(basePath, 'package.json'), 'utf8');
+  const pkgJson = JSON.parse(pkgJsonContent);
+  const externalDeps = Object.keys(pkgJson.dependencies);
+
   /** @type {Package[]} */
   const cemsToMerge = [];
-  const visited = new Set();
-
-  const dependencies = await findDependencies(paths, options);
-
-  dependencies?.forEach((dependencyPath) => {
-    /** Ignore the original globs, we don't want to try to find a CEM for those */
-    if(!dependencyPath.includes('node_modules')) return;
-
-    const { packageRoot, packageName } = splitPath(dependencyPath);
-    if(visited.has(packageName)) return;
-    visited.add(packageName);
-
+  externalDeps?.forEach((packageName) => {
+    const packageRoot = getPackageRootPath(packageName, {basePath});
     const packageJsonPath = `${packageRoot}${path.sep}package.json`;
     const cemPath = `${packageRoot}${path.sep}custom-elements.json`;
 

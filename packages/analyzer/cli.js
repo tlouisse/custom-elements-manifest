@@ -54,14 +54,12 @@ export async function cli({ argv = process.argv, cwd = process.cwd(), noWrite } 
       let thirdPartyCEMs = [];
       if (mergedOptions?.dependencies) {
         try {
-          const fullPathGlobs = globs.map(glob => path.resolve(cwd, glob));
-          thirdPartyCEMs = await findExternalManifests(fullPathGlobs, {basePath: cwd});
+          // const fullPathGlobs = globs.map(glob => path.resolve(cwd, glob));
+          thirdPartyCEMs = await findExternalManifests({basePath: cwd});
         } catch (e) {
           if (mergedOptions.dev) console.log(`Failed to add third party CEMs. \n\n${e.stack}`);
         }
       }
-
-
 
       let plugins = await addFrameworkPlugins(mergedOptions);
       plugins = [...plugins, ...(userConfig?.plugins || [])];

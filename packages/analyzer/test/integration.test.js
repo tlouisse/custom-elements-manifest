@@ -4,6 +4,29 @@ import path from 'path';
 import fs from 'fs';
 import { cli } from '../cli.js';
 
+/**
+ * Given a mono repo, creates symlinks
+ */
+ async function symLinkMonoPackages({rootPkgJson, cwd}) {
+  for (const p of rootPkgJson.workspaces) {
+    const pkgJson = JSON.parse(fs.readFileSync(`${cwd}/${p}/package.json`));
+    const [source, destination] = [`${cwd}/${p}`, `${cwd}/node_modules/${pkgJson.name}`];
+    if (!fs.existsSync(destination)) {
+      const pkgNameParts = pkgJson.name.split('/');
+      if (pkgNameParts.length > 1) {
+        const scopePath = `${cwd}/node_modules/${pkgNameParts[0]}`;
+        if (!fs.existsSync(scopePath)) {
+          await fs.promises.mkdir(scopePath);
+        }
+      }
+      await fs.promises.symlink(source, destination);
+    }
+  }
+}
+
+const posixify = (filePath) => filePath.split(path.sep).join(path.posix.sep);
+
+
 const fixturesDir = path.join(process.cwd(), 'fixtures');
 
 let groups = fs.readdirSync(fixturesDir);
@@ -17,20 +40,6 @@ for (const group of groups) {
     if (test.startsWith('+')) {
       groups = [group];
       break;
-    }
-  }
-}
-
-/**
- * Given a mono repo, creates symlinks
- */
-async function symLinkMonoPackages({rootPkgJson, cwd}) {
-  for (const p of rootPkgJson.workspaces) {
-    const pkgJson = JSON.parse(fs.readFileSync(`${cwd}/${p}/package.json`));
-    // await execPromise(`ln -sf ./${p} ./node_modules/${pkgJson.name}`, {cwd});
-    const [source, destination] = [`${cwd}/${p}`, `${cwd}/node_modules/${pkgJson.name}`];
-    if (!fs.existsSync(destination)) {
-      await fs.promises.symlink(source, destination);
     }
   }
 }
@@ -58,21 +67,18 @@ describe('@CEM/A', ({ it }) => {
             );
             const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
 
-            let packagePath = path.join(fixturesDir, `${testCase.relPath}/package`);
-            let packagePathPosix = packagePath.split(path.sep).join(path.posix.sep);
+            let packagePath = posixify(path.join(fixturesDir, `${testCase.relPath}/package`));
             // Handle monorepo
-            if (!fs.existsSync(packagePathPosix)) {
-              const monoRoot = path.join(fixturesDir, `${testCase.relPath}/monorepo`);
-              const monoRootPosix = monoRoot.split(path.sep).join(path.posix.sep);
-              const rootPkgJson = JSON.parse(fs.readFileSync(`${monoRootPosix}/package.json`));
-              packagePath = path.join(monoRootPosix, rootPkgJson.analyzeTarget);
-              packagePathPosix = packagePath.split(path.sep).join(path.posix.sep);
-              await symLinkMonoPackages({ rootPkgJson, cwd: monoRootPosix });
+            if (!fs.existsSync(packagePath)) {
+              const monoRoot = posixify(path.join(fixturesDir, `${testCase.relPath}/monorepo`));
+              const rootPkgJson = JSON.parse(fs.readFileSync(`${monoRoot}/package.json`));
+              packagePath = posixify(path.join(monoRoot, rootPkgJson.analyzeTarget));
+              await symLinkMonoPackages({ rootPkgJson, cwd: monoRoot });
             }
 
             const result = await cli({
-              argv: ['analyze', '--dependencies'],
-              cwd: packagePathPosix,
+              argv: ['analyze'],
+              cwd: packagePath,
               noWrite: true
             });
 
