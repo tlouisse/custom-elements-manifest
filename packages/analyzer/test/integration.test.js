@@ -21,6 +21,20 @@ for (const group of groups) {
   }
 }
 
+/**
+ * Given a mono repo, creates symlinks
+ */
+async function symLinkMonoPackages({rootPkgJson, cwd}) {
+  for (const p of rootPkgJson.workspaces) {
+    const pkgJson = JSON.parse(fs.readFileSync(`${cwd}/${p}/package.json`));
+    // await execPromise(`ln -sf ./${p} ./node_modules/${pkgJson.name}`, {cwd});
+    const [source, destination] = [`${cwd}/${p}`, `${cwd}/node_modules/${pkgJson.name}`];
+    if (!fs.existsSync(destination)) {
+      await fs.promises.symlink(source, destination);
+    }
+  }
+}
+
 let testCases = [];
 describe('@CEM/A', ({ it }) => {
   for (const group of groups) {
@@ -44,9 +58,23 @@ describe('@CEM/A', ({ it }) => {
             );
             const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
 
-            const packagePath = path.join(fixturesDir, `${testCase.relPath}/package`);
-            const packagePathPosix = packagePath.split(path.sep).join(path.posix.sep);
-            const result = await cli({ argv: ['analyze', '--dependencies'], cwd: packagePathPosix, noWrite: true });
+            let packagePath = path.join(fixturesDir, `${testCase.relPath}/package`);
+            let packagePathPosix = packagePath.split(path.sep).join(path.posix.sep);
+            // Handle monorepo
+            if (!fs.existsSync(packagePathPosix)) {
+              const monoRoot = path.join(fixturesDir, `${testCase.relPath}/monorepo`);
+              const monoRootPosix = monoRoot.split(path.sep).join(path.posix.sep);
+              const rootPkgJson = JSON.parse(fs.readFileSync(`${monoRootPosix}/package.json`));
+              packagePath = path.join(monoRootPosix, rootPkgJson.analyzeTarget);
+              packagePathPosix = packagePath.split(path.sep).join(path.posix.sep);
+              await symLinkMonoPackages({ rootPkgJson, cwd: monoRootPosix });
+            }
+
+            const result = await cli({
+              argv: ['analyze', '--dependencies'],
+              cwd: packagePathPosix,
+              noWrite: true
+            });
 
             const outputPath = path.join(fixturesDir, `${testCase.relPath}/output.json`);
             fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
